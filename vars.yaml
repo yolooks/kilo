@@ -1,0 +1,13 @@
+nova: "all"
+source_path: "/home/lhsa/kilo"
+public_url: "http://keystone-public-hk.itigerinner.com"
+admin_url: "http://keystone-admin-hk.itigerinner.com"
+rabbit_addrs: "10.9.70.28:5672,10.9.70.29:5672,10.9.70.30:5672"
+rabbit_pass: "rml0CN6UqojQIhwn"
+local_ip: "10.9.8.27"
+controll_vip: "10.9.8.251"
+nova_base_dir: "/data0"
+network_size: 254
+default_vlan_id: 16
+interface: "bond1"
+cpu_max_num: 47

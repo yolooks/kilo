@@ -5,7 +5,7 @@
   become: yes
   become_user: root
   vars:
-    SOURCE_PATH: "/tmp/kilo"
+    source_path: "/tmp/kilo"
     public_url: ""
     admin_url: ""
     rabbit_addrs: ""
@@ -21,7 +21,7 @@
   tasks:
   - name: copy source dir
     synchronize:
-      src: "{{ SOURCE_PATH }}/source/"
+      src: "{{ source_path }}/source/"
       dest: /opt/source/
       owner: yes
       group: yes
@@ -29,7 +29,7 @@
       delete: yes
 
   - name: install kilo repo
-    shell: cd /opt/source && rpm -ivh centos-release-openstack-kilo-1-2.el7.noarch.rpm
+    shell: cd /opt/source && rpm -q centos-release-openstack-kilo-1-2.el7.noarch || rpm -ivh centos-release-openstack-kilo-1-2.el7.noarch.rpm
 
   - name: copy yum repo
     shell: cd /etc/yum.repos.d/ && rm -f * && cp /opt/source/*.repo .
@@ -50,10 +50,10 @@
     shell: sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
 
   - name: set selinux to permissive
-    shell: setenforce 0 && getenforce
+    shell: setenforce 0 || true
 
   - name: close iptables
-    shell: systemctl stop iptables.service
+    shell: systemctl stop iptables.service || true
 
   - name: install nova compute
     shell: yum install -y openstack-nova-compute sysfsutils
@@ -64,14 +64,23 @@
   - name: install nova network
     shell: yum install -y openstack-nova-network openstack-nova-api
 
-  - name: backup nova.conf
+  - name: check if nova config exists
+    stat:
+      path: /etc/nova/nova.conf
+    register: nova_conf
+
+  - name: backup nova config if it exists
     shell: mv /etc/nova/nova.conf /etc/nova/nova.conf.bak
+    when: nova_conf.stat.exists
 
-  - name: config keystone public url
-    shell: sed -i "s/%KEYSTONE_PUBLIC_URL%/{{ public_url }}/g" /etc/nova/nova.conf
+  - name: copy nova template
+    shell: /usr/bin/cp -f /opt/source/nova.conf /etc/nova/nova.conf
 
-  - name: config keystone admin url
-    shell: sed -i "s/%KEYSTONE_ADMIN_URL%/{{ admin_url }}/g" /etc/nova/nova.conf
+  - name: config keystone public url use @ as separator
+    shell: sed -i "s@%KEYSTONE_PUBLIC_URL%@{{ public_url }}@g" /etc/nova/nova.conf
+
+  - name: config keystone admin url use @ as separator
+    shell: sed -i "s@%KEYSTONE_ADMIN_URL%@{{ admin_url }}@g" /etc/nova/nova.conf
 
   - name: config rabbit addr cluster
     shell: sed -i "s/%RABBIT_ADDRS%/{{ rabbit_addrs }}/g" /etc/nova/nova.conf
@@ -91,8 +100,8 @@
   - name: modify nova vm dir permission
     shell: chown -R nova:nova {{ nova_base_dir}}
 
-  - name: config nova base dir
-    shell: sed -i "s/%NOVA_BASE_DIR%/{{ nova_base_dir }}/g" /etc/nova/nova.conf
+  - name: config nova base dir use @ as separator
+    shell: sed -i "s@%NOVA_BASE_DIR%@{{ nova_base_dir }}@g" /etc/nova/nova.conf
 
   - name: config compute node cpu max core num
     shell: sed -i "s/%CPU_MAX_NUM%/{{ cpu_max_num }}/g" /etc/nova/nova.conf
@@ -121,6 +130,12 @@
   - name: chown nova.conf
     shell: chown root:nova /etc/nova/nova.conf
 
+  - name: replace nic multi queue and vip bind
+    shell: /usr/bin/cp -f /opt/source/queues/*.py /usr/lib/python2.7/site-packages/nova/virt/libvirt/
+
+  - name: replace network config set vip retain
+    shell: /usr/bin/cp -f /opt/source/vip/*.py /usr/lib/python2.7/site-packages/nova/network/
+
   - name: enable libvirtd nova-compute
     shell: systemctl enable libvirtd.service openstack-nova-compute.service
 
@@ -133,21 +148,9 @@
   - name: start nova-network and metadata
     shell: systemctl start openstack-nova-network.service openstack-nova-metadata-api.service
 
-  - name: view nova process
-    shell: ps auxww | grep nova | grep -v grep
-
-  - name: view vlan info
-    shell: "cat /proc/net/vlan/vlan{{ default_vlan_id }}"
-
-  - name: replace nic multi queue and vip bind
-    shell: /usr/bin/cp -f /opt/source/queues/*.py /usr/lib/python2.7/site-packages/nova/virt/libvirt/
-
-  - name: replace network config set vip retain
-    shell: /usr/bin/cp -f /opt/source/vip/*.py /usr/lib/python2.7/site-packages/nova/network/
-
   - name: set nova can login
     shell: usermod -s /bin/bash nova
 
   - name: add ssh unified public and private keys
-    shell: cd /opt/source && tar zxf ssh.tar.gz -C /var/lib/nova/ && chown -R nova:nova .ssh/
+    shell: cd /opt/source/resize && tar zxf ssh.tar.gz -C /var/lib/nova/ && chown -R nova:nova /var/lib/nova/.ssh/
 
