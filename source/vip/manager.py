@@ -2174,6 +2174,7 @@ class VlanManager(RPCAllocateFixedIP, floating_ips.FloatingIP, NetworkManager):
                                                    self.host)):
                 LOG.debug("Remove unused gateway %s", network['bridge'])
                 if network.enable_dhcp:
+                    # NOTE(jinlong): add network
                     self.driver.kill_dhcp(dev, network)
                 self.l3driver.remove_gateway(network)
                 if not self._uses_shared_ip(network):
