@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # install target path
-target="/data0"
+target="/opt"
 
 # install kilo repo
 cd ${target}/source && rpm -ivh centos-release-openstack-kilo-1-2.el7.noarch.rpm
