@@ -26,7 +26,7 @@ yum install -y openstack-nova-network openstack-nova-api
 
 # nova instances
 mkdir -p ${nova_base_dir}/nova/{buckets,instances,keys,networks,tmp}
-chown -R nova:nova ${nova_base_dir}
+chown -R nova:nova ${nova_base_dir}/nova
 
 # config kernel
 echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
