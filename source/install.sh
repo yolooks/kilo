@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# install target path
 target="/opt"
+nova_base_dir="/data0"
 
 # install kilo repo
 cd ${target}/source && rpm -ivh centos-release-openstack-kilo-1-2.el7.noarch.rpm
