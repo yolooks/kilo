@@ -73,6 +73,8 @@
   - name: install bridge
     shell: cd /opt/source && rpm -ivh bridge-utils-1.5-9.el7.x86_64.rpm
     ignore_errors: yes
+  - name: install python2
+    shell: dnf install -y python2.x86_64
   - name: deploy nova
     shell: cd /opt/source/rocky && tar zxf nova.tar.gz -C /opt && chown nova:nova /opt/nova -R
   - name: copy systemd service

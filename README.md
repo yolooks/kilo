@@ -12,6 +12,10 @@ ansible-playbook kilo.yaml -i ip, -e @vars.yaml
 - vars.yaml里需要配置local_ip
 - 可能每个宿主机的核数、或者网卡配置不一样
 
+说明: rocky安装需要对/opt/nova目录(包含virtualenv), 打成tar包: nova.tar.gz
+- tar zcf nova.tar.gz nova
+- 将其放到source/rocky目录下
+
 ## Example vars.yaml
 
 ```
