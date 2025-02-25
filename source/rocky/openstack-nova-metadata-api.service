@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenStack Nova Metadata API Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/nova
+ExecStart=/bin/bash -c 'cd /opt/nova && tools/with_venv.sh nova-api-metadata \
+    --log-dir=/var/log/nova \
+    --log-file=nova-api-metadata.log \
+    --config-file=/etc/nova/nova.conf \
+    -v -d'
+ExecStop=/bin/kill -9 $MAINPID
+Restart=always
+RestartSec=5s
+StandardOutput=append:/var/log/nova/nova-api-metadata.log
+StandardError=append:/var/log/nova/nova-api-metadata.log
+
+[Install]
+WantedBy=multi-user.target

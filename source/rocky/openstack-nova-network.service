@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenStack Nova Network Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/nova
+ExecStart=/bin/bash -c 'cd /opt/nova && tools/with_venv.sh nova-network \
+    --log-dir=/var/log/nova \
+    --log-file=nova-network.log \
+    --config-file=/etc/nova/nova.conf \
+    -v -d'
+ExecStop=/bin/kill -9 $MAINPID
+Restart=always
+RestartSec=5s
+StandardOutput=append:/var/log/nova/nova-network.log
+StandardError=append:/var/log/nova/nova-network.log
+
+[Install]
+WantedBy=multi-user.target

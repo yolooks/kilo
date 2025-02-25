@@ -30,127 +30,77 @@
 
   - name: install kilo repo
     shell: cd /opt/source && rpm -q centos-release-openstack-kilo-1-2.el7.noarch || rpm -ivh centos-release-openstack-kilo-1-2.el7.noarch.rpm
-
   - name: copy yum repo
     shell: cd /etc/yum.repos.d/ && rm -f * && cp /opt/source/*.repo .
-
   - name: yum clean and makecache
     shell: yum clean all && yum makecache fast
-
   - name: install package
     shell: yum install -y qemu-kvm libvirt qemu-kvm-tools libcgroup-tools virt-manager virt-install libguestfs-tools bash-completion.noarch
 
   - name: close firewall
     shell: systemctl stop firewalld.service && systemctl disable firewalld.service
-
   - name: close selinux sysconfig
     shell: sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux
-
   - name: close selinux config
     shell: sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
-
   - name: set selinux to permissive
     shell: setenforce 0 || true
-
   - name: close iptables
     shell: systemctl stop iptables.service || true
 
-  - name: install nova compute
-    shell: yum install -y openstack-nova-compute sysfsutils
-
-  - name: install nwfilter
-    shell: yum install -y libvirt-daemon-config-nwfilter
-
-  - name: install nova network
-    shell: yum install -y openstack-nova-network openstack-nova-api
-
-  - name: check if nova config exists
-    stat:
-      path: /etc/nova/nova.conf
-    register: nova_conf
-
-  - name: backup nova config if it exists
-    shell: mv /etc/nova/nova.conf /etc/nova/nova.conf.bak
-    when: nova_conf.stat.exists
-
-  - name: copy nova template
-    shell: /usr/bin/cp -f /opt/source/nova.conf /etc/nova/nova.conf
-
-  - name: config keystone public url use @ as separator
-    shell: sed -i "s@%KEYSTONE_PUBLIC_URL%@{{ public_url }}@g" /etc/nova/nova.conf
-
-  - name: config keystone admin url use @ as separator
-    shell: sed -i "s@%KEYSTONE_ADMIN_URL%@{{ admin_url }}@g" /etc/nova/nova.conf
-
-  - name: config rabbit addr cluster
-    shell: sed -i "s/%RABBIT_ADDRS%/{{ rabbit_addrs }}/g" /etc/nova/nova.conf
-
-  - name: config rabbit password
-    shell: sed -i "s/%RABBIT_PASS%/{{ rabbit_pass }}/g" /etc/nova/nova.conf
-
-  - name: config my ip
-    shell: sed -i "s/%LOCAL_IP%/{{ local_ip }}/g" /etc/nova/nova.conf
-
-  - name: config controll addr
-    shell: sed -i "s/%CONTROLL_VIP%/{{ controll_vip }}/g" /etc/nova/nova.conf
-
+  - name: install nova network and compute
+    shell: |
+       yum install -y openstack-nova-network openstack-nova-api
+       yum install -y openstack-nova-compute sysfsutils
+       yum install -y libvirt-daemon-config-nwfilter
   - name: create nova vm dir
     shell: mkdir -p {{ nova_base_dir }}/nova/{buckets,instances,keys,networks,tmp}
-
   - name: modify nova vm dir permission
-    shell: chown -R nova:nova {{ nova_base_dir}}
-
-  - name: config nova base dir use @ as separator
-    shell: sed -i "s@%NOVA_BASE_DIR%@{{ nova_base_dir }}@g" /etc/nova/nova.conf
-
-  - name: config compute node cpu max core num
-    shell: sed -i "s/%CPU_MAX_NUM%/{{ cpu_max_num }}/g" /etc/nova/nova.conf
-
-  - name: modify linux kernel ip forward
-    shell: echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-
-  - name: modify linux kernel all rp filter
-    shell: echo "net.ipv4.conf.all.rp_filter=0" >> /etc/sysctl.conf
-
-  - name: modify linux kernel default rp filter
-    shell: echo "net.ipv4.conf.default.rp_filter=0" >> /etc/sysctl.conf
-
-  - name: sysctl -p
-    shell: sysctl -p
-
-  - name: config network size
-    shell: sed -i "s/%NETWORK_SIZE%/{{ network_size }}/g" /etc/nova/nova.conf
-
-  - name: config default vlan id
-    shell: sed -i "s/%DEFAULT_VLAN_ID%/{{ default_vlan_id }}/g" /etc/nova/nova.conf
-
-  - name: config network interface
-    shell: sed -i "s/%INTERFACE%/{{ interface }}/g" /etc/nova/nova.conf
-
+    shell: chown -R nova:nova {{ nova_base_dir}}/nova
+  - name: copy nova template
+    shell: /usr/bin/cp -f /opt/source/nova.conf /etc/nova/nova.conf
   - name: chown nova.conf
     shell: chown root:nova /etc/nova/nova.conf
 
+  - name: config nova.conf
+    shell: |
+      sed -i "s@%KEYSTONE_PUBLIC_URL%@{{ public_url }}@g" /etc/nova/nova.conf
+      sed -i "s@%KEYSTONE_ADMIN_URL%@{{ admin_url }}@g" /etc/nova/nova.conf
+      sed -i "s/%RABBIT_ADDRS%/{{ rabbit_addrs }}/g" /etc/nova/nova.conf
+      sed -i "s/%RABBIT_PASS%/{{ rabbit_pass }}/g" /etc/nova/nova.conf
+      sed -i "s/%LOCAL_IP%/{{ local_ip }}/g" /etc/nova/nova.conf
+      sed -i "s/%CONTROLL_VIP%/{{ controll_vip }}/g" /etc/nova/nova.conf
+      sed -i "s@%NOVA_BASE_DIR%@{{ nova_base_dir }}@g" /etc/nova/nova.conf
+      sed -i "s/%CPU_MAX_NUM%/{{ cpu_max_num }}/g" /etc/nova/nova.conf
+      sed -i "s/%NETWORK_SIZE%/{{ network_size }}/g" /etc/nova/nova.conf
+      sed -i "s/%DEFAULT_VLAN_ID%/{{ default_vlan_id }}/g" /etc/nova/nova.conf
+      sed -i "s/%INTERFACE%/{{ interface }}/g" /etc/nova/nova.conf
+
+  - name: modify linux kernel ip forward
+    shell: echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+  - name: modify linux kernel all rp filter
+    shell: echo "net.ipv4.conf.all.rp_filter=0" >> /etc/sysctl.conf
+  - name: modify linux kernel default rp filter
+    shell: echo "net.ipv4.conf.default.rp_filter=0" >> /etc/sysctl.conf
+  - name: sysctl -p
+    shell: sysctl -p
+
   - name: replace nic multi queue and vip bind
     shell: /usr/bin/cp -f /opt/source/queues/*.py /usr/lib/python2.7/site-packages/nova/virt/libvirt/
-
   - name: replace network config set vip retain
     shell: /usr/bin/cp -f /opt/source/vip/*.py /usr/lib/python2.7/site-packages/nova/network/
 
   - name: enable libvirtd nova-compute
     shell: systemctl enable libvirtd.service openstack-nova-compute.service
-
   - name: start libvirtd nova-compute
     shell: systemctl start libvirtd.service openstack-nova-compute.service
-
   - name: enable nova-network and metadata
     shell: systemctl enable openstack-nova-network.service openstack-nova-metadata-api.service
-
   - name: start nova-network and metadata
     shell: systemctl start openstack-nova-network.service openstack-nova-metadata-api.service
 
   - name: set nova can login
     shell: usermod -s /bin/bash nova
-
   - name: add ssh unified public and private keys
     shell: cd /opt/source/resize && tar zxf ssh.tar.gz -C /var/lib/nova/ && chown -R nova:nova /var/lib/nova/.ssh/
 

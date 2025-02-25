@@ -1,0 +1,116 @@
+---
+- name: openstack rocky compute node install
+  hosts: "{{ nova }}"
+  gather_facts: no
+  become: yes
+  become_user: root
+  vars:
+    source_path: ""
+    public_url: ""
+    admin_url: ""
+    rabbit_addrs: ""
+    rabbit_pass: ""
+    local_ip: ""
+    controll_vip: ""
+    nova_base_dir: ""
+    network_size: 254
+    default_vlan_id: 16
+    interface: ""
+    cpu_max_num: 47
+
+  tasks:
+  - name: copy source dir
+    synchronize:
+      src: "{{ source_path }}/source/"
+      dest: /opt/source/
+      owner: yes
+      group: yes
+      perms: yes
+      delete: yes
+
+  - name: close firewall
+    shell: systemctl stop firewalld.service && systemctl disable firewalld.service
+  - name: close selinux sysconfig
+    shell: sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux
+  - name: close selinux config
+    shell: sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+  - name: set selinux to permissive
+    shell: setenforce 0 || true
+  - name: close iptables
+    shell: systemctl stop iptables.service || true
+
+  - name: nova user
+    shell: useradd -M -u 162 nova && groupmod -g 162 nova && usermod -aG libvirt nova && usermod -aG docker nova && usermod -aG nobody nova && usermod -aG qemu nova
+    ignore_errors: yes
+  - name: nova conf dir
+    shell: mkdir /etc/nova && mkdir /var/lib/nova && chown nova:nova /etc/nova -R && chown nova:nova /var/lib/nova -R
+    ignore_errors: yes
+  - name: create nova vm dir
+    shell: mkdir -p {{ nova_base_dir }}/nova/{buckets,instances,keys,networks,tmp}
+    ignore_errors: yes
+  - name: modify nova vm dir permission
+    shell: chown -R nova:nova {{ nova_base_dir}}/nova
+  - name: copy nova conf template
+    shell: /usr/bin/cp -f /opt/source/nova.conf /etc/nova/nova.conf
+  - name: config nova.conf
+    shell: |
+      sed -i "s@%KEYSTONE_PUBLIC_URL%@{{ public_url }}@g" /etc/nova/nova.conf
+      sed -i "s@%KEYSTONE_ADMIN_URL%@{{ admin_url }}@g" /etc/nova/nova.conf
+      sed -i "s/%RABBIT_ADDRS%/{{ rabbit_addrs }}/g" /etc/nova/nova.conf
+      sed -i "s/%RABBIT_PASS%/{{ rabbit_pass }}/g" /etc/nova/nova.conf
+      sed -i "s/%LOCAL_IP%/{{ local_ip }}/g" /etc/nova/nova.conf
+      sed -i "s/%CONTROLL_VIP%/{{ controll_vip }}/g" /etc/nova/nova.conf
+      sed -i "s@%NOVA_BASE_DIR%@{{ nova_base_dir }}@g" /etc/nova/nova.conf
+      sed -i "s/%CPU_MAX_NUM%/{{ cpu_max_num }}/g" /etc/nova/nova.conf
+      sed -i "s/%NETWORK_SIZE%/{{ network_size }}/g" /etc/nova/nova.conf
+      sed -i "s/%DEFAULT_VLAN_ID%/{{ default_vlan_id }}/g" /etc/nova/nova.conf
+      sed -i "s/%INTERFACE%/{{ interface }}/g" /etc/nova/nova.conf
+
+  # nova-network & metadata-api
+  - name: install bridge
+    shell: cd /opt/source && rpm -ivh bridge-utils-1.5-9.el7.x86_64.rpm
+    ignore_errors: yes
+  - name: deploy nova
+    shell: cd /opt/source/rocky && tar zxf nova.tar.gz -C /opt && chown nova:nova /opt/nova -R
+  - name: copy systemd service
+    shell: |
+      /usr/bin/cp -f /opt/source/rocky/openstack-nova-network.service /lib/systemd/system/openstack-nova-network.service
+      /usr/bin/cp -f /opt/source/rocky/openstack-nova-metadata-api.service /lib/systemd/system/openstack-nova-metadata-api.service
+  - name: start nova-network
+    shell: systemctl start openstack-nova-network.service && systemctl enable openstack-nova-network.service
+  - name: start nova-metadata-api
+    shell: systemctl start openstack-nova-metadata-api.service && systemctl enable openstack-nova-metadata-api.service
+
+  # nova-compute
+  - name: install docker-ce repo
+    shell: dnf config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+  - name: install docker-ce
+    shell: dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - name: config docker dameon
+    copy:
+      dest: /etc/docker/daemon.json
+      content: |
+        {
+            "data-root": "/data0/docker"
+        }
+      mode: '0644'
+  - name: start docker
+    shell: systemctl start docker && systemctl enable docker
+  - name: install libvirt
+    shell: dnf install -y qemu-kvm qemu-img libvirt virt-manager virt-install libvirt-client libguestfs-tools
+  - name: start libvirt
+    shell: systemctl start libvirtd && systemctl enable libvirtd
+  - name: load itables & ebtables
+    shell: modprobe ip_tables && modprobe ebtables
+  - name: kernel modify
+    shell: |
+      echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+      echo "net.ipv4.conf.all.rp_filter=0" >> /etc/sysctl.conf
+      echo "net.ipv4.conf.default.rp_filter=0" >> /etc/sysctl.conf
+      sysctl -p
+    ignore_errors: yes
+  - name: copy nova-compute systemd service
+    shell: /usr/bin/cp -f /opt/source/rocky/openstack-nova-compute.service /lib/systemd/system/openstack-nova-compute.service
+  - name: start nova-compute
+    shell: systemctl start openstack-nova-compute.service && systemctl enable openstack-nova-compute.service
+

@@ -1,0 +1,29 @@
+[Unit]
+Description=OpenStack Nova Compute Container
+After=network.target libvirtd.service docker.service
+Requires=docker.service
+
+[Service]
+User=nova
+Restart=always
+ExecStartPre=-/usr/bin/docker stop nova-compute
+ExecStartPre=-/usr/bin/docker rm -f nova-compute
+ExecStart=/usr/bin/docker run --name nova-compute \
+    -v /data0:/data0 \
+    -v /etc/nova:/etc/nova \
+    -v /var/lib/nova:/var/lib/nova \
+    -v /var/log/nova:/var/log/nova \
+    -v /var/run/libvirt:/var/run/libvirt \
+    -v /sys/fs/cgroup:/sys/fs/cgroup \
+    --cgroupns host \
+    --network host \
+    --pid host \
+    --uts host \
+    --ipc host \
+    --userns host \
+    --privileged \
+    nova:1.0.0
+ExecStop=/usr/bin/docker stop nova-compute
+
+[Install]
+WantedBy=multi-user.target
