@@ -17,6 +17,9 @@
     default_vlan_id: 16
     interface: ""
     cpu_max_num: 47
+    docker_username: ""
+    docker_password: ""
+    docker_registry_url: ""
 
   tasks:
   - name: copy source dir
@@ -109,6 +112,11 @@
       echo "net.ipv4.conf.default.rp_filter=0" >> /etc/sysctl.conf
       sysctl -p
     ignore_errors: yes
+
+  - name: docker login
+    shell: "echo {{ docker_password }} | docker login {{ docker_registry_url }} -u {{ docker_username }} --password-stdin"
+  - name: pull image
+    shell: docker pull {{ docker_registry_url }}/public/nova:1.0.0
   - name: copy nova-compute systemd service
     shell: /usr/bin/cp -f /opt/source/rocky/openstack-nova-compute.service /lib/systemd/system/openstack-nova-compute.service
   - name: start nova-compute
