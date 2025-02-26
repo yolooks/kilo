@@ -43,10 +43,10 @@
     shell: systemctl stop iptables.service || true
 
   - name: nova user
-    shell: useradd -M -u 162 nova && groupmod -g 162 nova && usermod -aG libvirt nova && usermod -aG docker nova && usermod -aG nobody nova && usermod -aG qemu nova
+    shell: useradd -m -d /var/lib/nova -u 162 nova && groupmod -g 162 nova && usermod -aG libvirt nova && usermod -aG docker nova && usermod -aG nobody nova && usermod -aG qemu nova
     ignore_errors: yes
   - name: nova conf dir
-    shell: mkdir /etc/nova && mkdir /var/lib/nova && chown nova:nova /etc/nova -R && chown nova:nova /var/lib/nova -R
+    shell: mkdir /etc/nova && chown nova:nova /etc/nova -R
     ignore_errors: yes
   - name: create nova vm dir
     shell: mkdir -p {{ nova_base_dir }}/nova/{buckets,instances,keys,networks,tmp}
